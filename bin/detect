@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
-# bin/detect <build-dir>
-echo 'heroku-pdftk-buildpack'
-exit 0
+
+if [ "$STACK" = "heroku-22" ] || [ "$STACK" = "heroku-24" ]; then
+  echo PDFtk
+  exit 0
+else
+  exit 1
+fi

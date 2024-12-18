@@ -1,16 +1,29 @@
 #!/usr/bin/env bash
 
-set -e
+set -eo pipefail
 
-mkdir -p "$1/bin/"
-cp -a binaries-$STACK/* "$1/bin/"
-show_version=$(LD_LIBRARY_PATH=$1/bin $1/bin/pdftk --version 2>&1 | tr '\n' ' ' )
-echo "-----> heroku-pdftk-buildpack: Installed to app/bin. ${show_version}"
+build=$(cd $1; pwd)
+bin=$build/bin
+lib_relative=bin/lib
+lib=$build/$lib_relative
+profd=$build/.profile.d
+
+mkdir -p $lib $profd
+
+cp -a dist/pdftk $bin/
+cp -a dist/*.so* $lib/
+
+version=$(LD_LIBRARY_PATH=$lib $bin/pdftk --version 2>&1 | head -2 | tail -1 | cut -d' ' -f2)
+echo "       Installed PDFtk $version."
 
 # Setting environment variables in .profile.d script (sourced at dyno startup)
-mkdir -p "$1/.profile.d/"
-cat <<EOF >"$1"/.profile.d/pdftk.sh
-export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:\$HOME/bin"
+
+cat <<EOF >$profd/pdftk.sh
+if [ "x\$LD_LIBRARY_PATH" == "x" ]; then
+  export LD_LIBRARY_PATH=\$HOME/$lib_relative
+else
+  export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:\$HOME/$lib_relative"
+fi
 EOF
 
 exit 0
