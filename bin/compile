@@ -2,28 +2,38 @@
 
 set -eo pipefail
 
-build=$(cd $1; pwd)
-bin=$build/bin
-lib_relative=bin/lib
-lib=$build/$lib_relative
-profd=$build/.profile.d
+build=$1
+cache=$2
+bin=$(cd "$(dirname "$0")"; pwd) # absolute path
+root=$(dirname "$bin")
+vendor=$build/vendor/pdftk
 
-mkdir -p $lib $profd
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
+}
+mkdir -p $vendor/{bin,lib} $build/.profile.d
 
-cp -a dist/pdftk $bin/
-cp -a dist/*.so* $lib/
+echo 'Installing PDFtk in ~/vendor' | indent
 
-version=$(LD_LIBRARY_PATH=$lib $bin/pdftk --version 2>&1 | head -2 | tail -1 | cut -d' ' -f2)
-echo "       Installed PDFtk $version."
+cp -a dist/pdftk $vendor/bin/
+cp -a dist/*.so* $vendor/lib/
 
-# Setting environment variables in .profile.d script (sourced at dyno startup)
+version=$(LD_LIBRARY_PATH=$vendor/lib $vendor/bin/pdftk --version 2>&1 | head -2 | tail -1 | cut -d' ' -f2)
+echo "Installed PDFtk $version." | indent
 
-cat <<EOF >$profd/pdftk.sh
+echo 'Setting up environment' | indent
+
+pdftk='$HOME/vendor/pdftk'
+cat <<EOF > $build/.profile.d/pdftk.sh
 if [ "x\$LD_LIBRARY_PATH" == "x" ]; then
-  export LD_LIBRARY_PATH=\$HOME/$lib_relative
+  export LD_LIBRARY_PATH="$pdftk/lib"
 else
-  export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:\$HOME/$lib_relative"
+  export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:$pdftk/lib"
 fi
-EOF
 
-exit 0
+export PATH="\$PATH:$pdftk/bin"
+EOF
